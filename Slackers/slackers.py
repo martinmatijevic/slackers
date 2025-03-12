@@ -1,4 +1,5 @@
 import os
+import re
 
 import discord
 from discord.ext import commands
@@ -16,7 +17,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
-bot = commands.Bot(command_prefix=".", intents=intents)
+bot = commands.Bot(command_prefix=".", intents=intents, case_insensitive=True)
 
 
 @bot.event
@@ -43,12 +44,25 @@ async def on_command_error(ctx, error):
         await ctx.send("🚫 You need a specific role to use this command!")
     elif isinstance(error, commands.NotOwner):
         await ctx.send("🚫 Only the bot owner can use this command!")
+
     elif isinstance(error, commands.CommandNotFound):
         await ctx.send(
             "❓ That command doesn't exist! Try `.help` for a list of commands."
         )
     else:
         await ctx.send("⚠️ An error occurred. Please try again.")
+
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return  # Ignore bot messages
+
+    # Ignore messages that contain only dots (one or more)
+    if re.fullmatch(r"\.+", message.content):
+        return
+
+    await bot.process_commands(message)  # Allow commands to process
 
 
 bot.run(TOKEN)

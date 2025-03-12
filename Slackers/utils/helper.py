@@ -67,5 +67,5 @@ def get_cut_percentage(team_type: str) -> float:
 
 
 def get_gc_cut(raid_type: str) -> int:
-    gc_cut_mapping = {"Saved": 30000, "Unsaved": 30000, "VIP": 20000}
-    return gc_cut_mapping.get(raid_type, 20000)  # Default to 20000 if not found
+    gc_cut_mapping = {"Saved": 100000, "Unsaved": 100000, "VIP": 70000}
+    return gc_cut_mapping.get(raid_type, 50000)  # Default to 50000 if not found

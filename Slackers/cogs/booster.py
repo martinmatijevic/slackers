@@ -26,9 +26,14 @@ class BoosterCommands(commands.Cog):
         """Check balance and runs."""
         member = member or ctx.author  # Default to command sender if no mention
         balance, runs = get_user_stats(member.id)
-        await ctx.send(
-            f"This season {member.display_name} has boosted in {runs} runs and earned {balance} gold."
-        )
+        if member != ctx.author:
+            await ctx.send(
+                f"This season {member.display_name} has boosted in {runs} runs and earned {balance} gold."
+            )
+        else:
+            await ctx.send(
+                f"This season you boosted in {runs} runs and earned {balance} gold."
+            )
 
     @commands.command()
     @not_raidleader()
@@ -58,9 +63,14 @@ class BoosterCommands(commands.Cog):
         ]
 
         if not user_runs:
-            return await ctx.send(
-                f"⚠️ {member.display_name}, you have not participated in any runs. Slacker!"
-            )
+            if member != ctx.author:
+                return await ctx.send(
+                    f"⚠️ {member.display_name} has not participated in any runs. Slacker!"
+                )
+            else:
+                return await ctx.send(
+                    "⚠️ you have not participated in any runs. Slacker!"
+                )
 
         # Format the filtered runs
         formatted_runs = []
