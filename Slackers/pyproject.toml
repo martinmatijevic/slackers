@@ -1,0 +1,8 @@
+[tool.black]
+line-length = 160
+
+[tool.isort]
+line_length = 160
+
+[tool.ruff]
+line-length = 160
