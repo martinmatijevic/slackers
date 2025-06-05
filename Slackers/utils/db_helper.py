@@ -1,11 +1,17 @@
 import json
+import os
 import sqlite3
 
 from utils.cuts_helper import sort_dawn_cuts, sort_obc_cuts
 
-conn1 = sqlite3.connect("users.db")
-conn2 = sqlite3.connect("runs.db")
-conn3 = sqlite3.connect("schedule.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "..", "users.db")
+conn1 = sqlite3.connect(DB_PATH)
+DB_PATH = os.path.join(BASE_DIR, "..", "runs.db")
+conn2 = sqlite3.connect(DB_PATH)
+DB_PATH = os.path.join(BASE_DIR, "..", "schedule.db")
+conn3 = sqlite3.connect(DB_PATH)
+
 cursor1 = conn1.cursor()
 cursor2 = conn2.cursor()
 cursor3 = conn3.cursor()

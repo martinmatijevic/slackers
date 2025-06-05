@@ -1,6 +1,8 @@
 import datetime
 import re
 
+import aiohttp
+
 DEBUG_CHANNEL_ID = 1367637512750759987
 
 
@@ -166,3 +168,10 @@ def process_args(args, author_id):
         no_raid_leader_cut = True
 
     return co_lead_boosters, modified_cuts, no_raid_leader_cut, no_gold_collector_cut
+
+
+async def fetch_current():
+    url = "https://data.wowtoken.app/v2/current/retail.json"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            return await resp.json()

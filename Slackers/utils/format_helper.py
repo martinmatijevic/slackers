@@ -1,9 +1,6 @@
 import json
-import locale
 
 import discord
-
-locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
 
 
 async def get_username(bot, server_id, user_id):
@@ -33,7 +30,8 @@ async def format_users(bot, server_id, users_data):
 
     for user_id, balance, runs in users_data:
         user = await get_username(bot, server_id, user_id)
-        table += f"{locale.format_string('%.2f', balance, grouping=True):<10} | {runs:<5} | {user}\n"
+        formatted_balance = f"{int(balance):,}".replace(",", ".")
+        table += f"{formatted_balance:<10} | {runs:<5} | {user}\n"
     table += "```"
 
     return table

@@ -1,6 +1,5 @@
 import io
 import json
-import locale
 
 import discord
 from discord.ext import commands
@@ -8,9 +7,7 @@ from discord.utils import get
 
 from utils.db_helper import get_all_runs, get_run_by_date_time, get_top_users, get_user_stats
 from utils.format_helper import format_runs
-from utils.helper import get_next_date_from_day
-
-locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
+from utils.helper import fetch_current, get_next_date_from_day
 
 
 def not_raidleader():
@@ -24,6 +21,40 @@ def not_raidleader():
 class Slacker(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.command(aliases=["t"])
+    async def token(self, ctx, amount: str = "1"):
+        """
+        Displays current EU token value.
+
+        Arguments:
+            amount : int (optional)
+                Positive number of tokens to fetch value. Default is 1.
+
+        Example:
+            .token
+            .t 5
+        """
+
+        try:
+            amount_int = int(amount)
+            if amount_int < 1:
+                raise ValueError("Amount must be a positive integer.")
+        except ValueError:
+            await ctx.send("❌ Please provide a valid positive number of tokens (e.g., `.token 3`).")
+            return
+
+        try:
+            data = await fetch_current()
+            eu_price = data["eu"][1]
+            if amount_int == 1:
+                await ctx.send(f"💰 EU Token Price: {format(eu_price, ',').replace(',', '.')} gold")
+            else:
+                total = eu_price * amount_int
+                await ctx.send(f"💰 {amount_int} x EU Token Price: {format(total, ',').replace(',', '.')} gold")
+        except Exception as e:
+            await ctx.send("❌ Error fetching EU token data.")
+            print(e)
 
     @commands.command()
     async def wakey(self, ctx):
@@ -69,22 +100,19 @@ class Slacker(commands.Cog):
 
         member = member or ctx.author  # Default to command sender if no mention
         balance, runs = get_user_stats(member.id)
+        formatted_balance = f"{int(balance):,}".replace(",", ".")
         if member != ctx.author:
             if balance == 0:
-                await ctx.send(
-                    f"This season {member.display_name} has boosted in {runs} runs and earned {locale.format_string('%.2f', balance, grouping=True)} gold. Slacker!"
-                )
+                await ctx.send(f"This season {member.display_name} has boosted in {runs} runs and earned {formatted_balance} gold. Slacker!")
                 await ctx.send("<:deadgesus:1346463122814402611>")
             else:
-                await ctx.send(
-                    f"This season {member.display_name} has boosted in {runs} runs and earned {locale.format_string('%.2f', balance, grouping=True)} gold."
-                )
+                await ctx.send(f"This season {member.display_name} has boosted in {runs} runs and earned {formatted_balance} gold.")
         else:
             if balance == 0:
-                await ctx.send(f"This season you boosted in {runs} runs and earned {locale.format_string('%.2f', balance, grouping=True)} gold. Slacker!")
+                await ctx.send(f"This season you boosted in {runs} runs and earned {formatted_balance} gold. Slacker!")
                 await ctx.send("<:deadgesus:1346463122814402611>")
             else:
-                await ctx.send(f"This season you boosted in {runs} runs and earned {locale.format_string('%.2f', balance, grouping=True)} gold.")
+                await ctx.send(f"This season you boosted in {runs} runs and earned {formatted_balance} gold.")
 
     @commands.command(aliases=["runs", "boosts"])
     async def r(self, ctx, member: discord.Member = None):
@@ -172,10 +200,7 @@ class Slacker(commands.Cog):
 
         # Create leaderboard text
         leaderboard_text = "\n".join(
-            [
-                f"**#{i}** <@{user_id}> with **{locale.format_string('%.2f', value, grouping=True)}** {metric}"
-                for i, (user_id, value) in enumerate(top_users, start=1)
-            ]
+            [f"**#{i}** <@{user_id}> with **{f'{int(value):,}'.replace(',', '.')}** {metric}" for i, (user_id, value) in enumerate(top_users, start=1)]
         )
 
         # Create embed
@@ -215,17 +240,17 @@ class Slacker(commands.Cog):
                         if rl_id in [123823668265615360, 361259804695461889, 780927857907335218]:
                             response = (
                                 f"<@{rl_id}> tell <@{gc_id}> to visit https://hub.dawn-boosting.com/bookings/raids/{run_id} "
-                                f"find actual_pot and use `.dawn {run_id} actual_pot` since you are banned in Dawn retard"
+                                f"find actual_pot and use `.dawn {run_id} actual_pot` since you are banned in Dawn retard."
                             )
                         else:
                             response = (
                                 f"<@{rl_id}> visit https://hub.dawn-boosting.com/bookings/raids/{run_id} "
-                                f"find actual_pot and use `.dawn {run_id} actual_pot`"
+                                f"find actual_pot and use `.dawn {run_id} actual_pot`."
                             )
                     elif community == "OBC":
                         response = (
                             f"<@{rl_id}> visit https://oblivion-marketplace.com/#/booking/raid/overview/leaderandgc "
-                            f"find your run, pot and use `.obc {run_id} pot`"
+                            f"find your run, pot and use `.obc {run_id} pot`."
                         )
                     else:
                         response = f"Run found for community {community}, but no specific instructions."

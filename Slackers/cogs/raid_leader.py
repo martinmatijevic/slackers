@@ -1,5 +1,5 @@
+import calendar
 import io
-import locale
 from datetime import datetime
 
 import discord
@@ -345,16 +345,10 @@ class RaidLeader(commands.Cog):
             team_type = loot_to_type(type)
 
             title = f"Type of Boost: Slackers {difficulty} {team_type}"
-            # Strip the year and leading zeros from date and time
-            # Date formatting (DD/MM/YYYY -> MON/DD)
+            # Convert "DD/MM/YYYY" to "MON/DD"
             dt = datetime.strptime(run_date, "%d/%m/%Y")
-            current_locale = locale.setlocale(locale.LC_TIME)
-            try:
-                locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
-                date_str = f"Date: {dt.strftime('%b/%d').upper()}"
-            finally:
-                # Restore original locale
-                locale.setlocale(locale.LC_TIME, current_locale)
+            month_abbr = calendar.month_abbr[dt.month].upper()
+            date_str = f"Date: {month_abbr}/{dt.day:02d}"
 
             # Time formatting (HH:MM -> HH:MM)
             time_parts = run_time.split(":")
