@@ -1,0 +1,7 @@
+ns_addon = "https://www.curseforge.com/wow/addons/northern-sky-raid-tools"
+ns_anchors = "https://wago.io/NSAnchors"
+ns_anchors1080 = "https://wago.io/NSAnchors1080"
+ns_manaforge = "https://wago.io/NSManaforge"
+liquid_wa = "https://wago.io/LiquidWeakAuras"
+liquid_anchors = "https://wago.io/LiquidAnchors"
+liquid_manaforge = "https://wago.io/LiquidManaforge"
