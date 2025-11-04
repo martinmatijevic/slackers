@@ -1,4 +1,6 @@
+import calendar
 import json
+from datetime import datetime
 
 import discord
 
@@ -59,3 +61,65 @@ def format_runs(runs):
         return "\n".join(formatted_runs)
     except Exception as e:
         print(e)
+
+
+def format_duration(seconds: int) -> str:
+    weeks, remainder = divmod(int(seconds), 604800)
+    days, remainder = divmod(remainder, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+
+    parts = []
+    if weeks:
+        parts.append(f"{weeks}w")
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if secs:
+        parts.append(f"{secs}s")
+
+    return " ".join(parts) if parts else "0s"
+
+
+def format_date_time(run_date: str, run_time: str, community: str):
+    """Format date and time string depending on community."""
+    if community.lower() == "obc":
+        dt = datetime.strptime(run_date, "%d/%m")
+        month_abbr = calendar.month_abbr[dt.month].upper()
+        return f"Date: {month_abbr}/{dt.day:02d}", f"Time: {run_time}"
+    else:
+        date_parts = run_date.split("/")
+        date_str = f"{int(date_parts[0])}/{int(date_parts[1])}"
+        time_parts = run_time.split(":")
+        time_str = f"{time_parts[0]}:{time_parts[1]}"
+        return date_str, time_str
+
+
+def format_mentions_dawn(merged_dict, co_leaders_ids, leader, rl_cut_bool):
+    """Format the mentions string for Dawn community."""
+    formatted_mentions = []
+    for key, value in merged_dict.items():
+        if key in co_leaders_ids:
+            formatted_mentions.append(f"{key}:{value}:co-lead")
+        elif key == leader:
+            formatted_mentions.append(f"{key}:{value}:lead" if rl_cut_bool else f"{key}:{value}:")
+        else:
+            formatted_mentions.append(f"{key}:{value}:")
+    return ",".join(formatted_mentions)
+
+
+def format_mentions_obc(merged_dict, leader, rl_cut_bool):
+    """Format the mentions string for OBC community."""
+    formatted_mentions = []
+    for key, value in merged_dict.items():
+        if key == leader:
+            if not rl_cut_bool:
+                formatted_mentions.append(f"<@{key}>" if value == 8 else f"<@{key}> {value}/8")
+            else:
+                formatted_mentions.append(f"<@{key}> L" if value == 8 else f"<@{key}> {value}/8 L")
+        else:
+            formatted_mentions.append(f"<@{key}>" if value == 8 else f"<@{key}> {value}/8")
+    return "\n".join(formatted_mentions)

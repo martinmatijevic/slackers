@@ -1,88 +1,101 @@
+import asyncio
 import os
 
 import discord
+from discord import app_commands
 from discord.ext import commands
-from dotenv import load_dotenv
 
+import env_setup
 from utils.db_helper import close_connection
-from utils.helper import log_debug
+from utils.helper import format_slash_args, log_debug
+from utils.smart_sync import smart_sync
 
-# Load environment variables from the .env file
-load_dotenv()
+_ = env_setup
 
-# Retrieve credentials and the 2FA secret key from .env
 TOKEN = os.getenv("DISCORD_TOKEN")
+PLAYGROUND = int(os.getenv("PLAYGROUND"))
 
 # Set up the bot with the appropriate intents
 intents = discord.Intents.default()
+intents.members = True
 intents.messages = True
 intents.message_content = True
 bot = commands.Bot(command_prefix=".", intents=intents, case_insensitive=True)
 
 
-class CleanHelp(commands.HelpCommand):
-    def get_command_signature(self, command):
-        return f"{self.context.clean_prefix}{command.qualified_name}"
+@bot.tree.command(name="help", description="Show all slash commands.")
+async def help_slash(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True, ephemeral=True)
 
-    async def send_bot_help(self, mapping):
-        lines = []
-        for cog, commands_list in mapping.items():
-            filtered = await self.filter_commands(commands_list, sort=True)
-            if not filtered:
-                continue
-            cog_name = cog.qualified_name if cog else "No Category"
-            lines.append(f"{cog_name}:")
-            for command in filtered:
-                aliases = ", ".join(command.aliases) if command.aliases else ""
-                alias_text = f" (Aliases: {aliases})" if aliases else ""
-                lines.append(f"  {self.get_command_signature(command)} - {command.short_doc}{alias_text}")
-            lines.append("")  # Blank line between cogs
+    # Collect commands by category
+    grouped = {}
+    for cmd in bot.tree.walk_commands():
+        if cmd.name.startswith("_"):  # skip hidden
+            continue
 
-        # Add footer/help hint
-        lines.append("Type .help <command> for more info on a command.")
-        lines.append("You can also type .help <category> for more info on a category.")
+        # Get the cog name if available
+        category = cmd.binding.__class__.__name__ if cmd.binding else "No Category"
 
-        help_text = "\n".join(lines) or "No commands available."
-        await self.get_destination().send(f"```\n{help_text}\n```")
+        # Build parameter list
+        param_list = []
+        for param in cmd.parameters:
+            if param.required:
+                param_list.append(f"<{param.name}>")
+            else:
+                if param.default is not None and not callable(param.default):
+                    # Show default value repr but strip quotes from strings for neatness
+                    default_val = param.default
+                    if isinstance(default_val, str):
+                        default_val = f'"{default_val}"'  # add quotes around string defaults
+                    param_list.append(f"[{param.name}={default_val}]")
+                else:
+                    param_list.append(f"[{param.name}]")
 
-    async def send_cog_help(self, cog):
-        lines = [f"{cog.qualified_name} Commands:"]
-        filtered = await self.filter_commands(cog.get_commands(), sort=True)
-        for command in filtered:
-            aliases = ", ".join(command.aliases) if command.aliases else ""
-            alias_text = f" (Aliases: {aliases})" if aliases else ""
-            lines.append(f"  {self.get_command_signature(command)} - {command.short_doc}{alias_text}")
-        help_text = "\n".join(lines)
-        await self.get_destination().send(f"```\n{help_text}\n```")
+        params_str = " " + " ".join(param_list) if param_list else ""
+        description = cmd.description or "No description"
 
-    async def send_command_help(self, command):
-        doc = command.help or "No description provided."
-        aliases = ", ".join(command.aliases) if command.aliases else ""
-        alias_text = f"\n\nAliases: {aliases}" if aliases else ""
-        text = f"{self.get_command_signature(command)}\n\n{doc}{alias_text}"
-        await self.get_destination().send(f"```\n{text}\n```")
+        grouped.setdefault(category, []).append(f"/{cmd.qualified_name}{params_str} — {description}")
 
-    async def send_group_help(self, group):
-        # Same as command help unless you want to list subcommands too
-        await self.send_command_help(group)
+    # Build final text
+    lines = []
+    for category in sorted(grouped.keys()):
+        lines.append(f"{category}:")
+        for entry in sorted(grouped[category], key=str.lower):
+            lines.append(f"  {entry}")
+        lines.append("")
+
+    # Legend at the bottom
+    if lines:
+        lines.append("<param> = required argument.")
+        lines.append("[param] = optional argument.")
+
+    help_text = "\n".join(lines) or "No slash commands available."
+    await interaction.followup.send(f"```\n{help_text}\n```", ephemeral=True)
 
 
-# Replace the default help command with the clean version
-bot.help_command = CleanHelp()
+@bot.tree.command(name="find", description="Mention a user by Discord ID")
+@app_commands.describe(discord_id="The Discord user ID to mention")
+async def find(interaction: discord.Interaction, discord_id: str):
+    try:
+        user_id = int(discord_id)
+        user = await bot.fetch_user(user_id)  # Fetch user object (works in DMs too)
+        await interaction.response.send_message(f"Found user: {user.mention} ({user})", ephemeral=True)
+    except ValueError:
+        await interaction.response.send_message("❌ That’s not a valid Discord ID.", ephemeral=True)
+    except discord.NotFound:
+        await interaction.response.send_message("❌ I couldn’t find a user with that ID.", ephemeral=True)
 
 
 @bot.event
 async def on_ready():
+
+    await asyncio.sleep(5)
+    await smart_sync(bot)
+
     print(f"Logged in as {bot.user}")
-    # Load the cogs
-    await bot.load_extension("cogs.admin")
-    await bot.load_extension("cogs.booster")
-    await bot.load_extension("cogs.raid_leader")
-
-
-@bot.event
-async def on_shutdown():
-    close_connection()
+    channel = bot.get_channel(PLAYGROUND)
+    if channel:
+        await channel.send(f"✅ {bot.user} is now online.")
 
 
 @bot.event
@@ -106,6 +119,20 @@ async def on_command(ctx):
 
 
 @bot.event
+async def on_app_command_completion(interaction, command):
+    args_str = format_slash_args(interaction)
+    loc = f"{interaction.guild}/{interaction.channel}" if interaction.guild else f"DM/{interaction.user}"
+    await log_debug(bot, f"Slash Command `/{command.qualified_name}{args_str}` used by {interaction.user} in {loc}")
+
+
+@bot.event
+async def on_app_command_error(interaction, error):
+    args_str = format_slash_args(interaction)
+    loc = f"{interaction.guild}/{interaction.channel}" if interaction.guild else f"DM/{interaction.user}"
+    await log_debug(bot, f"⚠ Slash Command `/{interaction.command.qualified_name}{args_str}` by {interaction.user} in {loc} failed with: {error}")
+
+
+@bot.event
 async def on_message(message):
     if message.author.bot:
         return  # Ignore bot messages
@@ -119,7 +146,26 @@ async def on_message(message):
     await bot.process_commands(message)  # Allow commands to process
 
 
-try:
-    bot.run(TOKEN)
-finally:
-    close_connection()
+async def main():
+    # Load cogs BEFORE starting the bot
+    for ext in ["cogs.admin", "cogs.booster", "cogs.raid_leader", "cogs.events", "cogs.bam", "cogs.raw", "cogs.quick_create"]:
+        await bot.load_extension(ext)
+
+    # Now start the bot
+    try:
+        await bot.start(TOKEN)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        channel = bot.get_channel(PLAYGROUND)
+        if channel:
+            try:
+                await channel.send(f"❌ {bot.user} is shutting down.")
+            except Exception as e:
+                print("Failed to send shutdown message:", e)
+        close_connection()
+        await bot.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -94,10 +94,22 @@ def sort_obc_cuts(bot, difficulty, type, pot, rl_id, gc_id, boosters, rl_cut_sha
 
     return full_booster_cut
 
+def sort_raw_cuts(difficulty, type, pot, boosters, rl_cut_shared, gc_cut_shared):
+    cut = get_cut_percentage_raw(difficulty)
+    rl_cut = 0 if rl_cut_shared else pot * 0.04
+    gc_cut = 0 if gc_cut_shared else get_gc_cut(type, difficulty)
+    cut_per_boss = round((pot * cut - rl_cut - gc_cut) / sum(boosters.values()))
+    return cut_per_boss * 8
+
+
 
 def get_cut_percentage(team_type: str) -> float:
-    cut_mapping = {"NM Teams": 0.62, "HC Teams": 0.62, "MythicTeam": 0.63}
-    return cut_mapping.get(team_type, 0.6)  # Default to 0.6 if team_type is not found
+    cut_mapping = {"NM Teams": 0.62, "HC Teams": 0.62, "Mythic Teams": 0.63}
+    return cut_mapping.get(team_type, 0.8)  # Default to 0.8 if team_type is not found
+
+def get_cut_percentage_raw(team_type: str) -> float:
+    cut_mapping = {"NM Teams": 0.65, "HC Teams": 0.65, "Mythic Teams": 0.63}
+    return cut_mapping.get(team_type, 0.8)  # Default to 0.8 if team_type is not found
 
 
 def get_cut_percentage_obc(team_type: str) -> float:
@@ -107,11 +119,11 @@ def get_cut_percentage_obc(team_type: str) -> float:
 
 def get_gc_cut(raid_type: str, team_type: str) -> int:
     gc_cut_mapping_nm = {"Saved": 35000, "Unsaved": 35000, "VIP": 35000}
-    gc_cut_mapping_hc = {"Saved": 50000, "Unsaved": 50000, "VIP": 40000}
+    gc_cut_mapping_hc = {"Saved": 50000, "Unsaved": 70000, "VIP": 60000}
     if team_type == "NM Teams":
-        return gc_cut_mapping_nm.get(raid_type, 40000)  # Default to 50000 for mythic
+        return gc_cut_mapping_nm.get(raid_type, 60000)  # Default to 60000 for mythic
     else:
-        return gc_cut_mapping_hc.get(raid_type, 40000)  # Default to 50000 for mythic
+        return gc_cut_mapping_hc.get(raid_type, 60000)  # Default to 60000 for mythic
 
 
 def get_gc_cut_obc(raid_type: str) -> float:
